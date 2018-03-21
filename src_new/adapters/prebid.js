@@ -96,7 +96,7 @@ function pbBidStreamHandler(pbBid){
 				no need of divid and kgpv to be returned in bid from prebid
 					no need to add custom keys in Prebid bid object, they might standerdize it in future
 		*/
-
+		console.log('Reading intelliRecommendation Data in Prebid controller: '+localStorage.getItem("intelliRecommendation"));
 		/* istanbul ignore else */
 		if(pbBid.bidderCode === 'pubmaticServer'){
 			pbBid.bidderCode = pbBid.originalBidder;

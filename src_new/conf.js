@@ -1,56 +1,31 @@
 exports.pwt = {
 	t: "3000",
-	pid: "46",
+	pid: "0",
 	gcv: "11",
-	pdvid: "4",
-	pubid: "9999",
-	dataURL: "t.test-domain.com/logger?",
-	winURL: "t.test-domain.com/tracker?"
+	pdvid: "0",
+	pubid: "301",
+	dataURL: "t.pubmatic.com/logger?",
+	winURL: "t.pubmatic.com/tracker?"
 };
 
 exports.adapters = {
 	pubmatic: {
 		rev_share: "0.0",
 		throttle: "100",
-		publisherId: "5890",
-		kgp: "_DIV_@_W_x_H_:_AUI_"
-	},
-	audienceNetwork: {
-		rev_share: "0.0",
-		throttle: "100",
-		kgp: "_DIV_",
-		klm: {
-			"Div_1": {
-				placementId: "8801674"
-			},
-			"Div-2": {
-				placementId: "8801685"
-			}
-		}
-	},
-	sekindoUM: {
-		rev_share: "0.0",
-		throttle: "100",
-		kgp: "_DIV_",
-		klm: {
-			"Div_1": {
-				spaceId: 14071
-			},
-			"Div-2": {
-				spaceId: 14071
-			}
-		}
+		publisherId: "301",
+		kgp: "_AU_@_W_x_H_:_AUI_",
+		serverSideEnabled:"1"
 	},
 	appnexus: {
 		rev_share: "0.0",
 		throttle: "100",
 		kgp: "_DIV_",
 		klm: {
-			"Div_1": {
-				placementId: "8801674"
+			"Div1": {
+				placementId: "10433394"
 			},
-			"Div-2": {
-				placementId: "8801685"
+			"Div2": {
+				placementId: "10433394"
 			}
 		}
 	},
@@ -60,12 +35,25 @@ exports.adapters = {
 		throttle: "100",
 		kgp: "_DIV_",
 		klm: {
-			"Div_1": {
+			"Div1": {
 				ct: "76835"
 			},
-			"Div-2": {
+			"Div2": {
 				ct: "147007"
 			}
 		}
+	},
+	pubmaticServer: {
+		rev_share: "0.0",
+		throttle: "100",
+		publisherId: "301",
+		kgp: "_AU_@_W_x_H_:_AUI_"
+	},
+	intelliRecommendation: {
+		rev_share: "0.0",
+		throttle: "100",
+		publisherId: "301",
+		kgp: "_AU_@_W_x_H_:_AUI_"
 	}
+
 };
