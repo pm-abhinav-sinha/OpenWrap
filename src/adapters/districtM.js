@@ -2,9 +2,13 @@ adapterManagerRegisterAdapter((function(){
 
 	var adapterID = 'districtM',
 		constPlacementID = 'placementId',
+		adapterConfigMandatoryParams = [constConfigKeyGeneratigPattern, constConfigKeyLookupMap],
+	    slotConfigMandatoryParams = [constPlacementID],
 		strCallbackFunction = 'DistrictMAdapterCallback',
 		strCallbackFunction2 = 'window.PWT.' + strCallbackFunction,
 		internalMap = {},
+		dealKey = constDealKeyFirstPart + adapterID,
+		dealChannelValues = {},
 
 		buildJPTCall = function(bid, callbackId, currentWidth, currentHeight) {
 
@@ -75,9 +79,8 @@ adapterManagerRegisterAdapter((function(){
 		fetchBids = function(configObject, activeSlots){
 			utilLog(adapterID+constCommonMessage01);
 
-			var adapterConfig = utilLoadGlobalConfigForAdapter(configObject, adapterID);
-			if(!utilCheckMandatoryParams(adapterConfig, [constConfigKeyGeneratigPattern, constConfigKeyLookupMap], adapterID)){
-				utilLog(adapterID+constCommonMessage07);
+			var adapterConfig = utilLoadGlobalConfigForAdapter(configObject, adapterID, adapterConfigMandatoryParams);
+			if(!adapterConfig){
 				return;
 			}
 
@@ -85,21 +88,13 @@ adapterManagerRegisterAdapter((function(){
 			var keyLookupMap = adapterConfig[constConfigKeyLookupMap];
 
 			utilForEachGeneratedKey(
+				adapterID,
+				slotConfigMandatoryParams,
 				activeSlots, 
 				keyGenerationPattern, 
 				keyLookupMap, 
 				function(generatedKey, kgpConsistsWidthAndHeight, currentSlot, keyConfig, currentWidth, currentHeight){
 
-					if(!keyConfig){
-						utilLog(adapterID+': '+generatedKey+constCommonMessage08);
-						return;
-					}
-
-					if(!utilCheckMandatoryParams(keyConfig, [constPlacementID], adapterID)){
-						utilLog(adapterID+': '+generatedKey+constCommonMessage09);
-						return;
-					}
-				
 					var callbackId = utilGetUniqueIdentifierStr();
 					internalMap[callbackId] = {};
 					internalMap[callbackId][constCommonConfig] = {
@@ -121,51 +116,70 @@ adapterManagerRegisterAdapter((function(){
 
 	win.PWT[strCallbackFunction] = function(jptResponseObj) {
 
-		utilLog(adapterID+constCommonMessage05);	
+		utilLog(adapterID+constCommonMessage05);
 
-		if (jptResponseObj && jptResponseObj.callback_uid) {
+		try{
 
-			var responseCPM,
-				bidObject,
-				id = jptResponseObj.callback_uid,
-				divID = '',
-				bidObj = internalMap[id] && internalMap[id][constCommonConfig] ? internalMap[id][constCommonConfig] : 0
-			;
+			if (jptResponseObj && jptResponseObj.callback_uid) {
 
-			if (bidObj) {
+				var responseCPM,
+					bidObject,
+					id = jptResponseObj.callback_uid,
+					divID = '',
+					bidObj = internalMap[id] && internalMap[id][constCommonConfig] ? internalMap[id][constCommonConfig] : false,
+					keyValuePairs = {},
+					bidID = utilGetUniqueIdentifierStr()
+				;
+
+				if(!bidObj){
+					utilLog(adapterID+': callback_uid: '+id+' not found in internalMap.');
+					return;
+				}
+
 				divID = bidObj[constCommonDivID];
+
+				if (jptResponseObj.result && jptResponseObj.result.cpm && jptResponseObj.result.cpm !== 0) {
+					responseCPM = parseInt(jptResponseObj.result.cpm, 10);
+
+					//CPM response from /jpt is dollar/cent multiplied by 10000
+					//in order to avoid using floats
+					//switch CPM to "dollar/cent"
+					responseCPM = responseCPM / 10000;
+					var dealID = utilTrim(jptResponseObj.result.deal_id);
+					var dealChannel = utilGetDealChannelValue(dealChannelValues, '');
+					if(dealID){
+						keyValuePairs[dealKey] = dealChannel+constDealKeyValueSeparator+dealID+constDealKeyValueSeparator+bidID;
+					}
+
+					bidObject = bidManagerCreateBidObject(
+						responseCPM,
+						bidManagerCreateDealObject(dealID, dealChannel),
+						jptResponseObj.result.creative_id,
+						"",
+						jptResponseObj.result.ad,
+						jptResponseObj.result.width,
+						jptResponseObj.result.height,
+						internalMap[id][constCommonKeyGenerationPatternValue],
+						keyValuePairs
+					);
+				}else {
+					bidObject = bidManagerCreateBidObject(
+						0,
+						bidManagerCreateDealObject(),
+						"",
+						"",
+						"",
+						0,
+						0,
+						internalMap[id][constCommonKeyGenerationPatternValue]
+					);
+				}
+				bidManagerSetBidFromBidder(divID, adapterID, bidObject, bidID);
 			}
 
-			if (jptResponseObj.result && jptResponseObj.result.cpm && jptResponseObj.result.cpm !== 0) {
-				responseCPM = parseInt(jptResponseObj.result.cpm, 10);
-
-				//CPM response from /jpt is dollar/cent multiplied by 10000
-				//in order to avoid using floats
-				//switch CPM to "dollar/cent"
-				responseCPM = responseCPM / 10000;
-				bidObject = bidManagerCreateBidObject(
-					responseCPM,
-					jptResponseObj.result.deal_id,
-					jptResponseObj.result.creative_id,
-					"",
-					jptResponseObj.result.ad,
-					jptResponseObj.result.width,
-					jptResponseObj.result.height,
-					internalMap[id][constCommonKeyGenerationPatternValue]
-				);
-			}else {
-				bidObject = bidManagerCreateBidObject(
-					0,
-					"",
-					"",
-					"",
-					"",
-					0,
-					0,
-					internalMap[id][constCommonKeyGenerationPatternValue]
-				);
-			}
-			bidManagerSetBidFromBidder(divID, adapterID, bidObject);
+		}catch(ex){
+			utilLog(adapterID+constCommonMessage21);
+			utilLog(ex);
 		}
 	};
 

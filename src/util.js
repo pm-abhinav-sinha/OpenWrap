@@ -1,6 +1,19 @@
 var hasOwnProperty = Object.prototype.hasOwnProperty,
 
+	utilIsIframe = function(){
+	    try{
+	        return window.self !== window.top;
+	    }catch(e){
+	        return false;
+	    }
+	},
+
 	getIndexInPageURL = function(findString){
+
+		if(utilIsIframe()){
+			return win.document.referrer.indexOf( findString );
+		}
+
 		return win.location.href.indexOf( findString );
 	},
 
@@ -16,7 +29,7 @@ var hasOwnProperty = Object.prototype.hasOwnProperty,
 		try{
 			if(getIndexInPageURL( constDebugInOverlay ) >= 0){
 				utilEnableDebugLog = true;
-				return true;	
+				return true;
 			}					
 		}catch(ex){}				
 		return false;
@@ -39,7 +52,7 @@ var hasOwnProperty = Object.prototype.hasOwnProperty,
 
 		if(utilEnableVLog){
 			element = doc.getElementById(divID);
-			if(element){
+			if(element && dimensionArray.length && dimensionArray[0][0] && dimensionArray[0][1]){
 				infoPanelElementID = divID + '-pwtc-info';
 				if(!utilIsUndefined(doc.getElementById(infoPanelElementID))){
 					var pos = utilGetElementLocation(element);
@@ -193,7 +206,7 @@ var hasOwnProperty = Object.prototype.hasOwnProperty,
 	
 	utilLog = function( data ){	
 		if( utilEnableDebugLog && console && utilIsFn(console.log) ){
-			utilIsStr(data) ? console.log( constDebugInConsolePrependWith + data ) : console.log(data);
+			utilIsStr(data) ? console.log( (new Date()).getTime()+ ' : ' + constDebugInConsolePrependWith + data ) : console.log(data);
 		}
 	},
 
@@ -244,6 +257,11 @@ var hasOwnProperty = Object.prototype.hasOwnProperty,
 	},	
 
 	utilLoadScript = function(tagSrc, callback) {
+		
+		if(!utilIsStr(tagSrc)){
+			return;
+		}
+
 		var jptScript = doc.createElement('script');
 		jptScript.type = 'text/javascript';
 		jptScript.async = true;
@@ -301,12 +319,20 @@ var hasOwnProperty = Object.prototype.hasOwnProperty,
 		}		
 	},	
 
-	utilLoadGlobalConfigForAdapter = function(configObject, adapter){		
+	utilLoadGlobalConfigForAdapter = function(configObject, adapterID, mandatoryParams){		
 		if(	utilHasOwnProperty(configObject, constCommonGlobal) 
 			&& utilHasOwnProperty(configObject[constCommonGlobal], constCommonAdapters)
-			&& utilHasOwnProperty(configObject[constCommonGlobal][constCommonAdapters], adapter)){
+			&& utilHasOwnProperty(configObject[constCommonGlobal][constCommonAdapters], adapterID)){
 
-			return configObject[constCommonGlobal][constCommonAdapters][adapter];
+			var adapterConfig = configObject[constCommonGlobal][constCommonAdapters][adapterID];
+
+			// if mandatory params are not present then return false
+			if(!utilCheckMandatoryParams(adapterConfig, mandatoryParams, adapterID)){
+				utilLog(adapterID+constCommonMessage07);
+				return false;
+			}
+
+			return configObject[constCommonGlobal][constCommonAdapters][adapterID];
 		}
 		return false;
 	},
@@ -357,15 +383,15 @@ var hasOwnProperty = Object.prototype.hasOwnProperty,
 	},
 
 	utilDisplayCreative = function(theDocument, bidDetails){
-		utilResizeWindow(theDocument, bidDetails.bid[constTargetingHeight], bidDetails.bid[constTargetingWidth]);			
+		utilResizeWindow(theDocument, bidDetails[constTargetingHeight], bidDetails[constTargetingWidth]);
 
-		if(bidDetails.bid[constTargetingAdHTML]){
-			theDocument.write(bidDetails.bid[constTargetingAdHTML]);
-		}else if(bidDetails.bid[constTargetingAdUrl]){
+		if(bidDetails[constTargetingAdHTML]){
+			theDocument.write(bidDetails[constTargetingAdHTML]);
+		}else if(bidDetails[constTargetingAdUrl]){
 			utilCreateAndInsertFrame(
 				theDocument,
-				bidDetails.bid[constTargetingAdUrl], 
-				bidDetails.bid[constTargetingHeight] , bidDetails.bid[constTargetingWidth] , 
+				bidDetails[constTargetingAdUrl], 
+				bidDetails[constTargetingHeight] , bidDetails[constTargetingWidth] , 
 				""
 			);
 		}else{
@@ -488,7 +514,7 @@ var hasOwnProperty = Object.prototype.hasOwnProperty,
 		return success;
 	},
 
-	utilForEachGeneratedKey = function(activeSlots, keyGenerationPattern, keyLookupMap, handlerFunction){
+	utilForEachGeneratedKey = function(adapterID, slotConfigMandatoryParams, activeSlots, keyGenerationPattern, keyLookupMap, handlerFunction, addZeroBids){
 		var activeSlotsLength = activeSlots.length,
 			i,
 			j,
@@ -501,19 +527,57 @@ var hasOwnProperty = Object.prototype.hasOwnProperty,
 			kgpConsistsWidthAndHeight = keyGenerationPattern.indexOf(constCommonMacroForWidth) >= 0 && keyGenerationPattern.indexOf(constCommonMacroForHeight) >= 0;
 			for(i = 0; i < activeSlotsLength; i++){
 				generatedKeys = utilGenerateSlotNamesFromPattern( activeSlots[i], keyGenerationPattern );
-				generatedKeysLength = generatedKeys.length				
+				generatedKeysLength = generatedKeys.length;
 				for(j = 0; j < generatedKeysLength; j++){
-					var generatedKey = generatedKeys[j];
-					// handlerFunction(generatedKey, kgpConsistsWidthAndHeight, currentSlot, keyConfig, currentWidth, currentHeight);
-					//todo: send all the arguments in an object, this change will require changes in all adapters					
-					handlerFunction(
-						generatedKey, 
-						kgpConsistsWidthAndHeight, 
-						activeSlots[i], 
-						keyLookupMap[generatedKey], 
-						activeSlots[i][constAdSlotSizes][j][0], 
-						activeSlots[i][constAdSlotSizes][j][1]
-					);
+					var generatedKey = generatedKeys[j],
+						keyConfig = null,
+						callHandlerFunction = false
+					;
+
+					if(keyLookupMap == null){
+						callHandlerFunction = true;
+					}else{
+						keyConfig = keyLookupMap[generatedKey];
+						if(!keyConfig){
+							utilLog(adapterID+': '+generatedKey+constCommonMessage08);
+						}else if(!utilCheckMandatoryParams(keyConfig, slotConfigMandatoryParams, adapterID)){
+							utilLog(adapterID+': '+generatedKey+constCommonMessage09);
+						}else{
+							callHandlerFunction = true;
+						}
+					}
+
+					if(callHandlerFunction){
+
+						if(addZeroBids == true){
+							bidManagerSetBidFromBidder(
+								activeSlots[i][constCommonDivID], 
+								adapterID, 
+								bidManagerCreateBidObject(
+									0,
+									bidManagerCreateDealObject(),
+									"",
+									"",
+									"",
+									0,
+									0,
+									generatedKey,
+									null,
+									1
+								), 
+								utilGetUniqueIdentifierStr()
+							);
+						}
+
+						handlerFunction(
+							generatedKey, 
+							kgpConsistsWidthAndHeight, 
+							activeSlots[i], 
+							keyLookupMap ? keyLookupMap[generatedKey] : null, 
+							activeSlots[i][constAdSlotSizes][j][0], 
+							activeSlots[i][constAdSlotSizes][j][1]
+						);
+					}	
 				}
 			}
 		}
@@ -549,5 +613,271 @@ var hasOwnProperty = Object.prototype.hasOwnProperty,
 		})();		
 
 		return obj;
-	})()
+	})(),
+
+	utilCopyKeyValueObject = function(copyTo, copyFrom){
+		for(var key in copyFrom){
+			
+			copyFrom[key] = utilIsArray(copyFrom[key]) ? copyFrom[key] : [copyFrom[key]];
+
+			if(utilHasOwnProperty(copyFrom, key)){
+				if(utilHasOwnProperty(copyTo, key)){
+					copyTo[key].push.apply(copyTo[key], copyFrom[key])	;
+				}else{
+					copyTo[key] = copyFrom[key];
+				}
+			}
+		}
+	},
+
+	utilAjaxCall = function(url, callback, data, options) {
+		try {
+
+			options = options || {};
+
+			var x,
+				XHR_DONE = 4,				
+				ajaxSupport = true,
+				method = options.method || (data ? 'POST' : 'GET')
+			;
+
+			if(!window.XMLHttpRequest){
+				ajaxSupport = false;
+			}else{
+				x = new window.XMLHttpRequest();
+				if(utilIsUndefined(x.responseType)){
+					ajaxSupport = false;
+				}
+			}
+
+			if(!ajaxSupport){
+				utilLog('Ajax is not supported');
+				return;
+			}
+
+			x.onreadystatechange = function (){
+				if(x.readyState === XHR_DONE && callback){
+					callback(x.responseText, x);
+				}
+			};
+
+			x.open(method, url);
+			
+			if(options.withCredentials){
+				x.withCredentials = true;
+			}
+
+			if(options.preflight){
+				x.setRequestHeader('X-Requested-With', 'XMLHttpRequest');
+			}
+
+			x.setRequestHeader('Content-Type', options.contentType || 'text/plain');		
+			x.send(method === 'POST' && data);
+
+		}catch(error){
+			utilLog('Failed in Ajax');
+			utilLog(error);
+		}
+	},
+
+	utilGetDealChannelValue = function(map, key){
+		if(!utilIsObject(map)){
+			return constDealChannelPMP;
+		}
+		return utilHasOwnProperty(map, key) ? map[key] : constDealChannelPMP;
+	},
+
+	utilTrim = function(s){
+		if(!utilIsStr(s)){
+			return s;
+		}else{
+			return s.replace(/^\s+/g,'').replace(/\s+$/g,'');
+		}
+	},
+
+	utilAddMessageEventListener = function(eventHandler){
+
+		if(typeof eventHandler !== "function"){
+			utilLog("EventHandler should be a function");
+			return false;
+		}
+
+		if(window.addEventListener){
+			window.addEventListener("message", eventHandler, false);
+		}else{
+			window.attachEvent("onmessage", eventHandler);
+		}
+
+		return true;
+	},
+
+	utilGetBididForPMP = function(values, priorityArray){
+
+		values = values.split(',');
+
+		var valuesLength = values.length,
+			priorityArrayLength = priorityArray.length,
+			selectedPMPDeal = '',
+			bidID = ''
+		;
+
+		if(valuesLength == 0){
+			utilLog('Error: Unable to find bidID as values array is empty.');
+			return;
+		}
+		
+		for(var i = 0; i < priorityArrayLength; i++){
+
+			for(var j = 0; j < valuesLength; j++){
+				if(values[j].indexOf(priorityArray[i]) >= 0){
+					selectedPMPDeal = values[j];
+					break;
+				}
+			}
+
+			if(selectedPMPDeal != ''){
+				break;
+			}
+		}
+		
+		if(selectedPMPDeal == ''){
+			selectedPMPDeal = values[0];
+			utilLog('No PMP-Deal was found matching PriorityArray, So Selecting first PMP-Deal: '+ selectedPMPDeal);		
+		}else{
+			utilLog('Selecting PMP-Deal: '+ selectedPMPDeal);	
+		}
+
+		var temp = selectedPMPDeal.split(constDealKeyValueSeparator);
+		if(temp.length == 3){
+			bidID = temp[2];
+		}
+
+		if(!bidID){
+			utilLog('Error: bidID not found in PMP-Deal: '+ selectedPMPDeal);
+			return;
+		}
+
+		return bidID;
+	},
+
+	utilSafeFrameCommunicationProtocol = function(msg){
+		try{
+			msgData = JSON.parse(msg.data);
+			
+			if(!msgData.pwt_type){
+				return;
+			}
+
+			switch(parseInt(msgData.pwt_type)){
+
+				case 1:
+					if(inSafeFrame){
+						return;
+					}
+					
+					var bidDetails = bidManagerGetBidById(msgData.pwt_bidID);
+					if(bidDetails){
+						var theBid = bidDetails.bid,
+							adapterID = bidDetails.adapter,
+							divID = bidDetails.slotid,
+							newMsgData = {
+								pwt_type: 2,
+								pwt_bid: theBid
+							}
+						;
+						utilVLogInfo(divID, {type: 'disp', adapter: adapterID});
+						bidManagerExecuteMonetizationPixel(divID, adapterID, theBid, msgData.pwt_bidID);
+						msg.source.postMessage(JSON.stringify(newMsgData), msgData.pwt_origin);
+					}
+
+					break;					
+
+				case 2:
+					if(!inSafeFrame){
+						return;
+					}
+					
+					if(msgData.pwt_bid){
+						//utilDisplayCreative(window.document, msgData.pwt_bid);
+
+						//new code
+						var theBid = msgData.pwt_bid;
+						utilResizeWindow(window.document, theBid[constTargetingHeight], theBid[constTargetingWidth]);
+
+						if(theBid[constTargetingAdHTML]){
+							/*var iframe = utilCreateInvisibleIframe();
+							iframe.setAttribute('width', theBid[constTargetingWidth]);
+	        				iframe.setAttribute('height', theBid[constTargetingHeight]);
+	        				iframe.style = '';
+	        				window.document.body.appendChild(iframe);
+							iframe.contentDocument.open();
+							var creative = "<script>var $sf = window.parent.$sf;<\/script>" + 
+								"<script>setInterval(function(){try{var fr = window.document.defaultView.frameElement;fr.width = window.parent.document.defaultView.innerWidth;fr.height = window.parent.document.defaultView.innerHeight;}catch(e){}}, 200);</script>" + 
+								theBid[constTargetingAdHTML];
+							iframe.contentDocument.write(creative);
+							iframe.contentDocument.close();*/
+
+							try{
+								var iframe = utilCreateInvisibleIframe();
+								if(!iframe){
+									throw {message: 'Failed to create invisible frame.', name:""};
+								}
+
+								iframe.setAttribute('width', theBid[constTargetingWidth]);
+	        					iframe.setAttribute('height', theBid[constTargetingHeight]);
+	        					iframe.style = '';
+
+								window.document.body.appendChild(iframe);
+
+								if(!iframe.contentWindow){
+									throw {message: 'Unable to access frame window.', name:""};
+								}
+
+								var iframeDoc = iframe.contentWindow.document;
+								if(!iframeDoc){
+									throw {message: 'Unable to access frame window document.', name:""};
+								}
+
+								var content = '<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd"><html><head><base target="_top" /><scr' + 'ipt>inDapIF=true;</scr' + 'ipt></head>';
+									content += '<body>';
+									content += "<script>var $sf = window.parent.$sf;<\/script>";
+									content += "<script>setInterval(function(){try{var fr = window.document.defaultView.frameElement;fr.width = window.parent.document.defaultView.innerWidth;fr.height = window.parent.document.defaultView.innerHeight;}catch(e){}}, 200);</script>";
+									content += theBid[constTargetingAdHTML];
+									content += '</body></html>';
+
+								iframeDoc.write(content);
+								iframeDoc.close();
+								
+							}catch(e){
+								utilLog('Error in rendering creative in safe frame.');
+								//utilLog(e);
+								utilLog('Rendering synchronously.');
+								utilDisplayCreative(window.document, msgData.pwt_bid);
+							}
+
+						}else if(theBid[constTargetingAdUrl]){
+							utilCreateAndInsertFrame(
+								window.document,
+								theBid[constTargetingAdUrl], 
+								theBid[constTargetingHeight] , theBid[constTargetingWidth] , 
+								""
+							);
+						}else{
+							utilLog("creative details are not found");
+							utilLog(theBid);
+						}											
+					}
+
+					break;
+			}
+		}catch(e){}
+	},
+
+	utilAddMessageEventListenerForSafeFrame = function(isInSafeFrame){
+		inSafeFrame = isInSafeFrame;
+		if(!safeFrameMessageListenerAdded){
+			utilAddMessageEventListener(utilSafeFrameCommunicationProtocol);
+			safeFrameMessageListenerAdded = true;
+		}
+	}
 ;

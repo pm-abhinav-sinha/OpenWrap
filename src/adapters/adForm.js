@@ -3,15 +3,16 @@ adapterManagerRegisterAdapter((function(){
 		adxDomain = 'adx.adform.net',
 		constConfigAdxDomain = 'adxDomain',
 		constConfigMid = 'mid',
+		adapterConfigMandatoryParams = [constConfigKeyGeneratigPattern, constConfigKeyLookupMap],
+	    slotConfigMandatoryParams = [constConfigMid],
 
 		fetchBids = function(configObject, activeSlots){
 			utilLog(adapterID+constCommonMessage01);
 
 			try{
 
-				var adapterConfig = utilLoadGlobalConfigForAdapter(configObject, adapterID);
-				if(!utilCheckMandatoryParams(adapterConfig, [constConfigKeyGeneratigPattern, constConfigKeyLookupMap], adapterID)){
-					utilLog(adapterID+constCommonMessage07);
+				var adapterConfig = utilLoadGlobalConfigForAdapter(configObject, adapterID, adapterConfigMandatoryParams);
+				if(!adapterConfig){
 					return;
 				}
 
@@ -38,46 +39,26 @@ adapterManagerRegisterAdapter((function(){
 				;
 
 				utilForEachGeneratedKey(
+					adapterID,
+					slotConfigMandatoryParams,
 					activeSlots, 
 					keyGenerationPattern, 
 					keyLookupMap, 
-					function(generatedKey, kgpConsistsWidthAndHeight, currentSlot, keyConfig, currentWidth, currentHeight){
-						
-						if(!keyConfig){
-							utilLog(adapterID+': '+generatedKey+constCommonMessage08);
-							return;
-						}
-
-						//check for mandatory params
-						if(!utilCheckMandatoryParams(keyConfig, [constConfigMid], adapterID)){
-							utilLog(adapterID+': '+generatedKey+constCommonMessage09);
-							return;
-						}					
-
-						if(kgpConsistsWidthAndHeight){
+					function(generatedKey, kgpConsistsWidthAndHeight, currentSlot, keyConfig, currentWidth, currentHeight){						
+						var adSlotSizes = kgpConsistsWidthAndHeight ? [[currentWidth, currentHeight]] : currentSlot[constAdSlotSizes];
+						var adSlotSizesLength = adSlotSizes.length;
+						for(var n=0; n<adSlotSizesLength; n++){
 							pushDataInSlots(
 								keyConfig, 
 								currentSlot[constCommonDivID], 
 								currentSlot[constAdSlotSizes],
 								generatedKey,
-								currentWidth,
-								currentHeight
-							);						
-						}else{
-							var adSlotSizes = currentSlot[constAdSlotSizes];
-							var adSlotSizesLength = adSlotSizes.length;
-							for(var n=0; n<adSlotSizesLength; n++){
-								pushDataInSlots(
-									keyConfig, 
-									currentSlot[constCommonDivID], 
-									currentSlot[constAdSlotSizes],
-									generatedKey,
-									adSlotSizes[n][0],
-									adSlotSizes[n][1]
-								);
-							}
-						}
-					}
+								adSlotSizes[n][0],
+								adSlotSizes[n][1]
+							);
+						}						
+					},
+					true
 				);
 
 				if(slots.length > 0){
@@ -111,7 +92,79 @@ adapterManagerRegisterAdapter((function(){
 		    }
 			}catch(e){}
 
-		    return btoa(url.join(''));
+		    return encode64(url.join(''));
+		},
+
+		encode64 = function(input) {
+		    var out = [];
+		    var chr1;
+		    var chr2;
+		    var chr3;
+		    var enc1;
+		    var enc2;
+		    var enc3;
+		    var enc4;
+		    var i = 0;
+		    var _keyStr = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_=';
+
+		    try{
+		    input = utf8_encode(input);
+
+		    while (i < input.length) {
+
+		        chr1 = input.charCodeAt(i++);
+		        chr2 = input.charCodeAt(i++);
+		        chr3 = input.charCodeAt(i++);
+
+		        enc1 = chr1 >> 2;
+		        enc2 = ((chr1 & 3) << 4) | (chr2 >> 4);
+		        enc3 = ((chr2 & 15) << 2) | (chr3 >> 6);
+		        enc4 = chr3 & 63;
+
+		        if (isNaN(chr2)) {
+		            enc3 = enc4 = 64;
+		        } else if (isNaN(chr3)) {
+		            enc4 = 64;
+		        }
+
+		        out.push(_keyStr.charAt(enc1), _keyStr.charAt(enc2));
+		        if (enc3 !== 64) out.push(_keyStr.charAt(enc3));
+		        if (enc4 !== 64) out.push(_keyStr.charAt(enc4));
+		    }
+
+			}catch(e){
+				utilLog(adapterID+ ': erron in encoding');
+				utilLog(e);
+			}
+
+		    return out.join('');
+		},
+
+		utf8_encode = function(string) {
+
+			try{
+		    string = string.replace(/\r\n/g, '\n');
+		    var utftext = '';
+
+		    for (var n = 0; n < string.length; n++) {
+
+		        var c = string.charCodeAt(n);
+
+		        if (c < 128) {
+		            utftext += String.fromCharCode(c);
+		        } else if ((c > 127) && (c < 2048)) {
+		            utftext += String.fromCharCode((c >> 6) | 192);
+		            utftext += String.fromCharCode((c & 63) | 128);
+		        } else {
+		            utftext += String.fromCharCode((c >> 12) | 224);
+		            utftext += String.fromCharCode(((c >> 6) & 63) | 128);
+		            utftext += String.fromCharCode((c & 63) | 128);
+		        }
+		    }
+
+			}catch(e){}
+
+		    return utftext;
 		},
 
 		callBackFunction = function(adItems, theSlotsArray){
@@ -127,7 +180,7 @@ adapterManagerRegisterAdapter((function(){
 			        
 			    	bidObject = bidManagerCreateBidObject(
 			    		adItem.win_bid,
-			    		"",
+			    		bidManagerCreateDealObject(),
 			    		"", 
 			    		adItem.banner,
 			    		"",

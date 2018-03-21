@@ -14,15 +14,20 @@ var win = window,
 	// Ones passed by PWT to DFP OR present in bidDetails
 	constTargetingBidID 		= 'pwtsid', //DivID will be passed
 	constTargetingBidStatus 	= 'pwtbst',
-	constTargetingAdapterID 	= 'pwtaid',
+	constTargetingAdapterID 	= 'pwtpid',
 	constTargetingEcpm			= 'pwtecp',
 	constTargetingActualEcpm	= 'pwtaecp',
+	constTargetingDeal			= 'pwtdeal',
 	constTargetingDealID		= 'pwtdid',
 	constTargetingAdUrl			= 'pwtau',
 	constTargetingAdHTML		= 'pwta',
 	constTargetingCreativeID	= 'pwtcid',
 	constTargetingHeight		= 'pwth',
 	constTargetingWidth			= 'pwtw',
+	constTargetingKvp			= 'kvp',
+	constTargetingPubID			= 'pwtpubid',
+	constTargetingProfileID		= 'pwtprofid',
+	constTargetingProfileVersionID	= 'pwtverid',
 
 	// ones used in PWT config
 	constConfigKeyGeneratigPattern = 'kgp',	
@@ -36,6 +41,9 @@ var win = window,
 
 	constConfigAdapterRevenueShare = 'rev_share',
 	constConfigAdapterThrottle = 'throttle',
+	constConfigAdapterBidPassThrough = 'pt',
+	constConfigGlobalKeyValue = 'gkv',
+	constCommonSlotKeyValue = 'skv',
 
 	// very commonly used
 	constCommonConfig = 'config',
@@ -48,6 +56,16 @@ var win = window,
 	constCommonAdapters = 'adapters',
 	constCommonSlots = 'slots',
 	constCommonKeyGenerationPatternValue = 'kgpv',
+	constCommonDefaultBid = 'db',
+	constCommonLastBidID = 'lastbidid',
+	
+	constDealID = 'id',
+	constDealChannel = 'channel',
+	constDealKeyFirstPart = 'pwtdeal_',
+	constDealKeyValueSeparator = '_-_',
+	constDealChannelPMP = 'PMP',
+	constDealChannelPMPG = 'PMPG',
+	constDealChannelPreffered = 'PREF',
 
 	constCommonMessage01 = ': In fetchbids.',
 	constCommonMessage02 = ': Throttled.',
@@ -69,6 +87,9 @@ var win = window,
 	constCommonMessage18 = 'Bid is selected.',
 	constCommonMessage19 = ': Found winning adapterID: ',
 	constCommonMessage20 = 'Bid is rejected as ecpm is empty string.',
+	constCommonMessage21 = ': error in respose handler.',
+	constCommonMessage22 = 'Bid is rejected as ecpm is <= 0.',
+	constCommonMessage23 = 'Existing bid is default-bid with zero ecpm, thus replacing it with the new bid from partner.',
 
 	constCommonMacroForWidth = '_W_',
 	constCommonMacroForHeight = '_H_',
@@ -94,11 +115,47 @@ var win = window,
 	constBidInfoAdapter = 'adp',
 	constBidInfoNetEcpm = 'en',
 	constBidInfoGrossEcpm = 'eg',
-	constBidInfoTimestamp = 'tst'
+	constBidInfoTimestamp = 'tst',
+
+	safeFrameMessageListenerAdded = false,
+	inSafeFrame = false
 ;
 
 win.PWT = win.PWT || {};
 
-win.PWT.displayCreative = function(theDocument, divID){
-	bidManagerDisplayCreative(theDocument, divID);	
+win.PWT.displayCreative = function(theDocument, bidID){
+	utilLog('In displayCreative for: ' + bidID);
+	bidManagerDisplayCreative(theDocument, bidID);
+};
+
+win.PWT.displayPMPCreative = function(theDocument, values, priorityArray){
+	utilLog('In displayPMPCreative for: ' + values);	
+	var bidID = utilGetBididForPMP(values, priorityArray);
+	bidID && bidManagerDisplayCreative(theDocument, bidID);
+};
+
+win.PWT.sfDisplayCreative = function(theDocument, bidID){
+	utilLog('In sfDisplayCreative for: ' + bidID);
+	utilAddMessageEventListenerForSafeFrame(true);	
+	window.parent.postMessage(
+		JSON.stringify({
+			pwt_type: "1",
+			pwt_bidID: bidID,
+			pwt_origin: win.location.protocol+'//'+win.location.hostname
+		}), 
+		"*"
+	);
+};
+
+win.PWT.sfDisplayPMPCreative = function(theDocument, values, priorityArray){
+	utilLog('In sfDisplayPMPCreative for: ' + values);
+	utilAddMessageEventListenerForSafeFrame(true);
+	window.parent.postMessage(
+		JSON.stringify({
+			pwt_type: "1",
+			pwt_bidID: utilGetBididForPMP(values, priorityArray),
+			pwt_origin: win.location.protocol+'//'+win.location.hostname
+		}), 
+		"*"
+	);
 };
