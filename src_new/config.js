@@ -22,7 +22,18 @@ exports.getSendAllBidsStatus = function(){
 };
 
 exports.getTimeout = function(){
-	return window.parseInt(config.pwt.t) || 1000;
+	var to=window.parseInt(config.pwt.t);
+	var intelliReco=localStorage.getItem("intelliRecommendation");
+	if(intelliReco!=undefined){
+		intelliRecoObj=JSON.parse(intelliReco);
+		console.log('Reading intelliRecommendation Data in Timeout function: '+intelliReco);
+		if(intelliRecoObj!=undefined && intelliRecoObj.TIMEOUT!=undefined && intelliRecoObj.TIMEOUT[0]!=undefined){
+			to+=window.parseInt(intelliRecoObj.TIMEOUT[0]);
+		}
+		
+	}
+	//return window.parseInt(config.pwt.t) || 1000;
+	return window.parseInt(to) || 1000;
 };
 
 exports.getAdapterRevShare = function(adapterID){
@@ -35,8 +46,20 @@ exports.getAdapterRevShare = function(adapterID){
 
 exports.getAdapterThrottle = function(adapterID){
 	var adapterConfig = config.adapters;
+	var throttle=window.parseFloat(adapterConfig[adapterID][CONSTANTS.CONFIG.THROTTLE]);
+
+	var intelliReco=localStorage.getItem("intelliRecommendation");
+	if(intelliReco!=undefined){
+	intelliRecoObj=JSON.parse(intelliReco);
+	console.log('Reading intelliRecommendation Data in Throttle function: '+intelliReco);
+	
+	if(intelliRecoObj!=undefined && intelliRecoObj.PARTNER_EXCLUDE!=undefined && intelliRecoObj.PARTNER_EXCLUDE.indexOf(adapterID)>-1){
+		console.log("Setting Throttling for adapter: "+ adapterID + "to 90% as recommended by intelliRecoommendation engine.");
+		throttle=10;
+		}
+	}
 	if(util.isOwnProperty(adapterConfig[adapterID], CONSTANTS.CONFIG.THROTTLE)){
-		return 100 - window.parseFloat(adapterConfig[adapterID][CONSTANTS.CONFIG.THROTTLE]);
+		return 100 - throttle;
 	}
 	return 0;
 };

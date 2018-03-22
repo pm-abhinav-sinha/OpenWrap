@@ -96,7 +96,7 @@ function pbBidStreamHandler(pbBid){
 				no need of divid and kgpv to be returned in bid from prebid
 					no need to add custom keys in Prebid bid object, they might standerdize it in future
 		*/
-		console.log('Reading intelliRecommendation Data in Prebid controller: '+localStorage.getItem("intelliRecommendation"));
+		
 		/* istanbul ignore else */
 		if(pbBid.bidderCode === 'pubmaticServer'){
 			pbBid.bidderCode = pbBid.originalBidder;
@@ -195,6 +195,9 @@ function generatedKeyCallback(adapterID, adUnits, adapterConfig, impressionID, g
 		util.log("Not calling adapter: "+ adapterID + ", for " + generatedKey +", as it is serverSideEnabled.");
 		return;
 	}
+	
+
+
 
 	/* istanbul ignore else */
 	if(!util.isOwnProperty(adUnits, code)){
@@ -265,6 +268,20 @@ function generatedKeyCallback(adapterID, adUnits, adapterConfig, impressionID, g
 				slotParams["height"] = size[1];
 				adUnits[ code ].bids.push({	bidder: adapterID, params: slotParams });
 			});
+			break;
+		case "intelliRecommendation":
+			slotParams["publisherId"] = adapterConfig["publisherId"];
+			slotParams["adUnitIndex"] = ''+currentSlot.getAdUnitIndex();
+			slotParams["adUnitId"] = currentSlot.getAdUnitID();
+			slotParams["divId"] = currentSlot.getDivID();
+			slotParams["adSlot"] = generatedKey;
+			slotParams["wiid"] = impressionID;
+			slotParams["profId"] = CONFIG.getProfileID();
+			/* istanbul ignore else*/
+			if(window.PWT.udpv){
+				slotParams["verId"] = CONFIG.getProfileDisplayVersionID();
+			}
+			adUnits[ code ].bids.push({	bidder: adapterID, params: slotParams });
 			break;
 
 		default:
