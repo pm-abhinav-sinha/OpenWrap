@@ -52,7 +52,8 @@ exports.adapters = {
 	intelliRecommendation: {
 		rev_share: "0.0",
 		throttle: "100",
-		publisherId: "301",
+		publisherId: "23105",
+		profId: "100",
 		kgp: "_AU_@_W_x_H_:_AUI_"
 	}
 
