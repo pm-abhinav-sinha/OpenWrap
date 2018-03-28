@@ -800,10 +800,25 @@ exports.vLogInfo = function(divID, infoObject){
 					if(latency < 0){
 						latency = 0;
 					}
+					reco="{}";
+					if(infoObject.bidder==='intelliRecommendation'){
+					var intelliReco=localStorage.getItem("intelliRecommendation");
+					if(intelliReco!=undefined){
+						intelliRecoObj=JSON.parse(intelliReco);
+					
+					console.log('Reading intelliRecommendation Data in Console Layover function: '+intelliReco);
+					if(intelliRecoObj!=undefined ){
+						reco=intelliReco;
+					}
+		
+					}
+					message = "Reco: " + infoObject.bidder + (infoObject.s2s ? "(s2s)" : "") + ": " + reco;
+					}else{
 					message = "Bid: " + infoObject.bidder + (infoObject.s2s ? "(s2s)" : "") + ": " + bidDetails.getNetEcpm() + "(" + bidDetails.getGrossEcpm() + "): " + latency + "ms";
 					/* istanbul ignore else */
 					if(bidDetails.getPostTimeoutStatus()){
 						message += ": POST-TIMEOUT";
+					}
 					}
 					break;
 

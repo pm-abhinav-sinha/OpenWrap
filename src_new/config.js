@@ -26,13 +26,14 @@ exports.getTimeout = function(){
 	var intelliReco=localStorage.getItem("intelliRecommendation");
 	if(intelliReco!=undefined){
 		intelliRecoObj=JSON.parse(intelliReco);
-		console.log('Reading intelliRecommendation Data in Timeout function: '+intelliReco);
+		
 		if(intelliRecoObj!=undefined && intelliRecoObj.TIMEOUT!=undefined && intelliRecoObj.TIMEOUT[0]!=undefined){
 			to+=window.parseInt(intelliRecoObj.TIMEOUT[0]);
 		}
 		
 	}
 	//return window.parseInt(config.pwt.t) || 1000;
+	console.log("Timeout being used for this profile :"+to);
 	return window.parseInt(to) || 1000;
 };
 
@@ -66,11 +67,25 @@ exports.getAdapterThrottle = function(adapterID){
 
 exports.isServerSideAdapter = function(adapterID){
 	var adapterConfig = config.adapters;
+	var ssEnabled=false;
 	/* istanbul ignore else */
 	if(util.isOwnProperty(adapterConfig[adapterID], CONSTANTS.CONFIG.SERVER_SIDE_ENABLED)){
-		return window.parseInt(adapterConfig[adapterID][CONSTANTS.CONFIG.SERVER_SIDE_ENABLED]) === 1;
+		ssEnabled= window.parseInt(adapterConfig[adapterID][CONSTANTS.CONFIG.SERVER_SIDE_ENABLED]) === 1;
 	}
-	return false;
+
+	var intelliReco=localStorage.getItem("intelliRecommendation");
+	if(intelliReco!=undefined){
+	intelliRecoObj=JSON.parse(intelliReco);
+	console.log('Reading intelliRecommendation Data in Throttle function: '+intelliReco);
+	
+	if(intelliRecoObj!=undefined && intelliRecoObj.PARTNER_SERVER!=undefined && intelliRecoObj.PARTNER_SERVER.indexOf(adapterID)>-1){
+		console.log("Setting Server Side flag for adapter: "+ adapterID + "to true, as recommended by intelliRecoommendation engine.");
+		ssEnabled=true;
+		}
+	}
+
+	
+	return ssEnabled;
 };
 
 exports.getAdapterMaskBidsStatus = function(adapterID){
